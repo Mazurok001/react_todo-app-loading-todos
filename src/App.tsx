@@ -1,10 +1,76 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 /* eslint-disable jsx-a11y/control-has-associated-label */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserWarning } from './UserWarning';
-import { USER_ID } from './api/todos';
+import { createTodo, getTodos, USER_ID } from './api/todos';
+import { Todo } from './types/Todo';
+import cn from 'classnames';
 
 export const App: React.FC = () => {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [title, setTitle] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loading, setLoading] = useState(true);
+
+  // eslint-disable-next-line no-console
+  console.log(todos);
+
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+
+    getTodos()
+      .then(setTodos)
+      .catch(() => setErrorMessage('Unable to load todos'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const isAllCompletedTodo = todos.every(todo => todo.completed);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  // const getNewId = () => {
+  //   return todos.length > 0 ? Math.max(...todos.map(todo => todo.id)) + 1 : 1;
+  // };
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (title.trim() === '') {
+      setErrorMessage('Title should not be empty');
+
+      return;
+    }
+
+    const newTodo: Omit<Todo, 'id'> = {
+      // id: getNewId(),
+      userId: USER_ID,
+      title: title,
+      completed: false,
+    };
+
+    setTodos([...todos, newTodo]);
+
+    createTodo(newTodo);
+
+    setTitle('');
+    setErrorMessage('');
+
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  const handleHideError = () => {
+    setErrorMessage('');
+  };
+
   if (!USER_ID) {
     return <UserWarning />;
   }
@@ -18,17 +84,22 @@ export const App: React.FC = () => {
           {/* this button should have `active` class only if all todos are completed */}
           <button
             type="button"
-            className="todoapp__toggle-all active"
+            className={cn('todoapp__toggle-all', {
+              active: isAllCompletedTodo,
+            })}
             data-cy="ToggleAllButton"
           />
 
           {/* Add a todo on form submit */}
-          <form>
+          <form onSubmit={handleSubmit}>
             <input
+              ref={inputRef}
               data-cy="NewTodoField"
               type="text"
               className="todoapp__new-todo"
               placeholder="What needs to be done?"
+              value={title}
+              onChange={event => setTitle(event.target.value)}
             />
           </form>
         </header>
@@ -111,7 +182,7 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          {/* This todo is in loadind state */}
+          {/* This todo is in loading state */}
           <div data-cy="Todo" className="todo">
             <label className="todo__status-label">
               <input
@@ -185,19 +256,30 @@ export const App: React.FC = () => {
       {/* Add the 'hidden' class to hide the message smoothly */}
       <div
         data-cy="ErrorNotification"
-        className="notification is-danger is-light has-text-weight-normal"
+        className={cn(
+          'notification is-danger',
+          'is-light',
+          'has-text-weight-normal',
+          { hidden: !errorMessage },
+        )}
       >
-        <button data-cy="HideErrorButton" type="button" className="delete" />
+        <button
+          data-cy="HideErrorButton"
+          type="button"
+          className="delete"
+          onClick={handleHideError}
+        />
         {/* show only one message at a time */}
-        Unable to load todos
-        <br />
-        Title should not be empty
-        <br />
-        Unable to add a todo
-        <br />
-        Unable to delete a todo
-        <br />
-        Unable to update a todo
+        {/* Unable to load todos
+      <br />
+      Title should not be empty
+      <br />
+      Unable to add a todo
+      <br />
+      Unable to delete a todo
+      <br />
+      Unable to update a todo */}
+        {errorMessage}
       </div>
     </div>
   );
